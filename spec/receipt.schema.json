@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dagora.io/spec/receipt.schema.json",
+  "title": "Dagora Trust Layer receipt 0.1",
+  "type": "object",
+  "required": ["schema", "WHY_NOW", "DISTANCE", "ALTERNATIVE", "CLAIM", "UNRESOLVED", "receipt"],
+  "properties": {
+    "receipt": { "$ref": "#/definitions/receipt" }
+  },
+  "definitions": {
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "issued_at", "opens_door"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "issued_at": { "type": "string", "minLength": 10 },
+        "opens_door": { "const": false }
+      }
+    }
+  }
+}

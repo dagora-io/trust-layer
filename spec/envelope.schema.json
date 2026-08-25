@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dagora.io/spec/envelope.schema.json",
+  "title": "Dagora Trust Layer envelope 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "WHY_NOW", "DISTANCE", "ALTERNATIVE", "CLAIM", "UNRESOLVED"],
+  "properties": {
+    "schema": {
+      "const": "dagora.trust-layer.envelope/0.1"
+    },
+    "WHY_NOW": { "type": "string", "minLength": 1 },
+    "DISTANCE": { "type": "string", "minLength": 1 },
+    "ALTERNATIVE": { "type": "string", "minLength": 1 },
+    "UNRESOLVED": { "type": "string", "minLength": 1 },
+    "CLAIM": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["grade", "evidence"],
+      "properties": {
+        "grade": {
+          "enum": ["VERIFIED", "OBSERVED", "REPORTED", "INFERRED", "UNRESOLVED"]
+        },
+        "evidence": { "type": "string", "minLength": 1 }
+      }
+    },
+    "receipt": {
+      "$ref": "receipt.schema.json#/definitions/receipt"
+    }
+  }
+}

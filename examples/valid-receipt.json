@@ -1,0 +1,16 @@
+{
+  "schema": "dagora.trust-layer.envelope/0.1",
+  "WHY_NOW": "A recommendation was issued and must be stored without becoming a write token. Locator: docs/04-receipt.md",
+  "DISTANCE": "Unchanged. The receipt records advice only.",
+  "ALTERNATIVE": "Set opens_door true so a bot can merge — rejected; that would leave this specification.",
+  "CLAIM": {
+    "grade": "REPORTED",
+    "evidence": "docs/04-receipt.md table field opens_door"
+  },
+  "UNRESOLVED": "none",
+  "receipt": {
+    "id": "ex-receipt-001",
+    "issued_at": "2026-08-25T00:00:00Z",
+    "opens_door": false
+  }
+}
