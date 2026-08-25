@@ -26,6 +26,17 @@ ACTION_KEYS = frozenset(
 )
 PROJ_SCHEMA = "dagora.trust-layer.project/0.1"
 SHARED_DICT_PIN = "a1c45cb53132bcd476309fcc7f107012e2401a5d"
+SKILL_MUST_CONTAIN = (
+    "tools/check.py",
+    "dictionary/shared.json",
+    "dagora.trust-layer.envelope/0.1",
+    "not a pass",
+)
+SKILL_SCOPE_WIDEN = (
+    "dictionary_errors_for",
+    "add a new envelope field",
+    "extend the envelope schema",
+)
 
 BANNED_FRAGMENTS = (
     "算子化",
@@ -189,6 +200,56 @@ def project_errors_for(doc: object, pin_keys: set[str]) -> list[str]:
     return err
 
 
+def _frontmatter(text: str) -> tuple[dict[str, str], str]:
+    if not text.startswith("---"):
+        return {}, text
+    rest = text[3:].lstrip("\n")
+    end = rest.find("\n---")
+    if end < 0:
+        return {}, text
+    meta: dict[str, str] = {}
+    for line in rest[:end].splitlines():
+        if ":" not in line or line[:1] in {" ", "\t"}:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        if key == "metadata":
+            continue
+        meta[key] = value.strip().strip("\"'")
+    return meta, rest[end + 4 :]
+
+
+def skill_errors_for(text: str, *, dirname: str | None = None) -> list[str]:
+    """Skill text/structure only. Does not call envelope or dictionary checkers."""
+    err: list[str] = []
+    meta, _body = _frontmatter(text)
+    name = meta.get("name", "")
+    if not name or any(ch not in "abcdefghijklmnopqrstuvwxyz0123456789-" for ch in name):
+        err.append("skill name must be a kebab slug")
+    if dirname is not None and name != dirname:
+        err.append("skill name must match directory")
+    desc = meta.get("description", "")
+    if not desc or len(desc) > 160:
+        err.append("skill description must be one line under 160 characters")
+    lowered = text.lower()
+    for needle in SKILL_MUST_CONTAIN:
+        if needle.lower() not in lowered:
+            err.append("missing required text: " + needle)
+    if "not a pass" not in lowered and (
+        "is a pass" in lowered or "opens the door" in lowered or "opens_door: true" in lowered
+    ):
+        err.append("receipt treated as a pass")
+    hit = _banned_in(text)
+    if hit:
+        err.append("banned fragment: " + hit)
+    for frag in SKILL_SCOPE_WIDEN:
+        if frag.lower() in lowered:
+            err.append("scope widen: " + frag)
+    if "openclaw agent" in lowered or "openclaw gateway" in lowered:
+        err.append("must not reach OpenClaw host")
+    return err
+
+
 def load(path: Path) -> object:
     return json.loads(path.read_text())
 
@@ -262,6 +323,26 @@ def main() -> int:
             print(f"PASS {path.name}")
     for path in proj_invalid:
         errs = project_errors_for(load(path), pin_keys)
+        if not errs:
+            print(f"FAIL expected invalid {path.name}: accepted")
+            failed += 1
+        else:
+            print(f"PASS {path.name} rejected ({errs[0]})")
+    skill_valid = ROOT / "adapters" / "openclaw" / "dagora-trust-wrap" / "SKILL.md"
+    skill_invalid = [
+        ROOT / "examples" / "invalid-skill-no-check.md",
+        ROOT / "examples" / "invalid-skill-receipt-pass.md",
+        ROOT / "examples" / "invalid-skill-banned.md",
+        ROOT / "examples" / "invalid-skill-widen-check.md",
+    ]
+    skill_errs = skill_errors_for(skill_valid.read_text(), dirname=skill_valid.parent.name)
+    if skill_errs:
+        print(f"FAIL expected valid {skill_valid.name}: {skill_errs}")
+        failed += 1
+    else:
+        print(f"PASS {skill_valid.name}")
+    for path in skill_invalid:
+        errs = skill_errors_for(path.read_text())
         if not errs:
             print(f"FAIL expected invalid {path.name}: accepted")
             failed += 1
