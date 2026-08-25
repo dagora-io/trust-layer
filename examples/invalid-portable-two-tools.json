@@ -1,0 +1,15 @@
+{
+  "schema": "dagora.trust-layer.portable-mcp/0.1",
+  "tools": [
+    {
+      "name": "dagora_trust_wrap",
+      "description": "Read dictionary/shared.json. Emit schema dagora.trust-layer.envelope/0.1. Run python3 tools/check.py. A receipt is not a pass.",
+      "inputSchema": { "type": "object" }
+    },
+    {
+      "name": "crewai_trust_wrap",
+      "description": "A second framework tool. Read dictionary/shared.json. Emit schema dagora.trust-layer.envelope/0.1. Run python3 tools/check.py. A receipt is not a pass.",
+      "inputSchema": { "type": "object" }
+    }
+  ]
+}

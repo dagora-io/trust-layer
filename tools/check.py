@@ -47,6 +47,14 @@ HE_PORT_SHAPE = (
     "mcp server",
     "stdio transport",
 )
+PORT_SCHEMA = "dagora.trust-layer.portable-mcp/0.1"
+PORT_HOST_KEYS = frozenset(
+    {"openclaw", "hermes", "langchain", "crewai", "autogen", "langgraph"}
+)
+PORT_SCHEMA = "dagora.trust-layer.portable-mcp/0.1"
+PORT_HOST_KEYS = frozenset(
+    {"openclaw", "hermes", "langchain", "crewai", "autogen", "langgraph"}
+)
 
 BANNED_FRAGMENTS = (
     "算子化",
@@ -314,6 +322,75 @@ def hermes_skill_errors_for(text: str, *, dirname: str | None = None) -> list[st
     return err
 
 
+def portable_errors_for(doc: object) -> list[str]:
+    """Portable MCP tools/list JSON only. Does not call skill/envelope/dictionary checkers."""
+    err: list[str] = []
+    if not isinstance(doc, dict):
+        return ["document is not an object"]
+    host = PORT_HOST_KEYS.intersection(doc)
+    if host:
+        err.append("host-specific key: " + ",".join(sorted(host)))
+    extra = set(doc) - {"schema", "tools"} - PORT_HOST_KEYS
+    if extra:
+        err.append(f"unknown keys: {sorted(extra)}")
+    action = ACTION_KEYS.intersection(doc)
+    if action:
+        err.append("action key: " + ",".join(sorted(action)))
+    if doc.get("schema") != PORT_SCHEMA:
+        err.append("schema must be dagora.trust-layer.portable-mcp/0.1")
+    tools = doc.get("tools")
+    if not isinstance(tools, list):
+        err.append("tools must be a list")
+        return err
+    if len(tools) != 1:
+        err.append("tools.length must be 1")
+        return err
+    tool = tools[0]
+    if not isinstance(tool, dict):
+        err.append("tool must be an object")
+        return err
+    extra_tool = set(tool) - {"name", "description", "inputSchema", "title"}
+    if extra_tool:
+        err.append(f"unknown tool keys: {sorted(extra_tool)}")
+    name = tool.get("name", "")
+    if not isinstance(name, str) or not name or any(
+        ch not in "abcdefghijklmnopqrstuvwxyz0123456789_" for ch in name
+    ):
+        err.append("tool name must be a slug")
+    desc = tool.get("description")
+    if not isinstance(desc, str) or not desc.strip():
+        err.append("tool description missing")
+    schema = tool.get("inputSchema")
+    if not isinstance(schema, dict) or schema.get("type") != "object":
+        err.append("inputSchema.type must be object")
+    blob = json.dumps(doc, ensure_ascii=False)
+    lowered = blob.lower()
+    for needle in SKILL_MUST_CONTAIN:
+        if needle.lower() not in lowered:
+            err.append("missing required text: " + needle)
+    if "not a pass" not in lowered and (
+        "is a pass" in lowered or "opens the door" in lowered or "opens_door: true" in lowered
+    ):
+        err.append("receipt treated as a pass")
+    hit = _banned_in(blob)
+    if hit:
+        err.append("banned fragment: " + hit)
+    for frag in SKILL_SCOPE_WIDEN:
+        if frag.lower() in lowered:
+            err.append("scope widen: " + frag)
+    return err
+
+
+def portable_errors_for_path(path: Path) -> list[str]:
+    text = path.read_text()
+    if path.suffix == ".md" or text.lstrip().startswith("---"):
+        return ["skill-shaped"]
+    try:
+        return portable_errors_for(json.loads(text))
+    except json.JSONDecodeError:
+        return ["not JSON"]
+
+
 def load(path: Path) -> object:
     return json.loads(path.read_text())
 
@@ -436,6 +513,37 @@ def main() -> int:
             failed += 1
         else:
             print(f"PASS {path.name} rejected ({errs[0]})")
+    port_valid = ROOT / "adapters" / "portable" / "mcp.tools.json"
+    port_invalid = [
+        ROOT / "examples" / "invalid-portable-no-check.json",
+        ROOT / "examples" / "invalid-portable-receipt-pass.json",
+        ROOT / "examples" / "invalid-portable-banned.json",
+        ROOT / "examples" / "invalid-portable-widen-check.json",
+        ROOT / "examples" / "invalid-portable-host-key.json",
+        ROOT / "examples" / "invalid-portable-two-tools.json",
+        ROOT / "examples" / "invalid-portable-skill-shaped.md",
+    ]
+    port_errs = portable_errors_for_path(port_valid)
+    if port_errs:
+        print(f"FAIL expected valid {port_valid.name}: {port_errs}")
+        failed += 1
+    else:
+        print(f"PASS {port_valid.name}")
+    for path in port_invalid:
+        errs = portable_errors_for_path(path)
+        if not errs:
+            print(f"FAIL expected invalid {path.name}: accepted")
+            failed += 1
+        else:
+            print(f"PASS {path.name} rejected ({errs[0]})")
+    extra_hosts = [
+        p
+        for p in (ROOT / "adapters").iterdir()
+        if p.is_dir() and p.name not in {"openclaw", "hermes", "portable"}
+    ]
+    if extra_hosts:
+        print(f"FAIL extra host adapters: {[p.name for p in extra_hosts]}")
+        failed += 1
     if failed:
         print(f"{failed} check(s) failed")
         return 1
