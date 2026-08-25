@@ -1,0 +1,18 @@
+{
+  "schema": "dagora.trust-layer.portable-mcp/0.1",
+  "tools": [
+    {
+      "name": "dagora_trust_wrap",
+      "description": "Wrap host output in the trust-layer envelope and run the local checker. Read dictionary/shared.json. Emit schema dagora.trust-layer.envelope/0.1. From the repository root run python3 tools/check.py. A receipt is not a pass.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "repository_root": {
+            "type": "string",
+            "description": "Path to the cloned trust-layer repository root."
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "dagora.trust-layer.project/0.1",
+  "adopt": [
+    "statement",
+    "confidence",
+    "grounds",
+    "source",
+    "brief",
+    "you_keep_the_call"
+  ],
+  "drop": [],
+  "aliases": {
+    "ask": "not_a_shared_term"
+  }
+}
