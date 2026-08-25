@@ -37,6 +37,16 @@ SKILL_SCOPE_WIDEN = (
     "add a new envelope field",
     "extend the envelope schema",
 )
+HERMES_SECTIONS = (
+    "## When to Use",
+    "## Procedure",
+    "## Verification",
+)
+HE_PORT_SHAPE = (
+    "mcp_servers",
+    "mcp server",
+    "stdio transport",
+)
 
 BANNED_FRAGMENTS = (
     "算子化",
@@ -200,15 +210,22 @@ def project_errors_for(doc: object, pin_keys: set[str]) -> list[str]:
     return err
 
 
-def _frontmatter(text: str) -> tuple[dict[str, str], str]:
+def _frontmatter_raw(text: str) -> str:
     if not text.startswith("---"):
-        return {}, text
+        return ""
     rest = text[3:].lstrip("\n")
     end = rest.find("\n---")
     if end < 0:
+        return ""
+    return rest[:end]
+
+
+def _frontmatter(text: str) -> tuple[dict[str, str], str]:
+    raw = _frontmatter_raw(text)
+    if not raw:
         return {}, text
     meta: dict[str, str] = {}
-    for line in rest[:end].splitlines():
+    for line in raw.splitlines():
         if ":" not in line or line[:1] in {" ", "\t"}:
             continue
         key, value = line.split(":", 1)
@@ -216,7 +233,8 @@ def _frontmatter(text: str) -> tuple[dict[str, str], str]:
         if key == "metadata":
             continue
         meta[key] = value.strip().strip("\"'")
-    return meta, rest[end + 4 :]
+    body = text[text.find("\n---", 3) + 4 :]
+    return meta, body
 
 
 def skill_errors_for(text: str, *, dirname: str | None = None) -> list[str]:
@@ -247,6 +265,52 @@ def skill_errors_for(text: str, *, dirname: str | None = None) -> list[str]:
             err.append("scope widen: " + frag)
     if "openclaw agent" in lowered or "openclaw gateway" in lowered:
         err.append("must not reach OpenClaw host")
+    return err
+
+
+def hermes_skill_errors_for(text: str, *, dirname: str | None = None) -> list[str]:
+    """Hermes skill text/structure only. Does not call OC/envelope/dictionary checkers."""
+    err: list[str] = []
+    meta, _body = _frontmatter(text)
+    raw = _frontmatter_raw(text)
+    raw_l = raw.lower()
+    name = meta.get("name", "")
+    if not name or any(ch not in "abcdefghijklmnopqrstuvwxyz0123456789-" for ch in name):
+        err.append("skill name must be a kebab slug")
+    if dirname is not None and name != dirname:
+        err.append("skill name must match directory")
+    desc = meta.get("description", "")
+    if not desc or len(desc) > 160:
+        err.append("skill description must be one line under 160 characters")
+    version = meta.get("version", "")
+    if not version or not any(ch.isdigit() for ch in version):
+        err.append("missing hermes version")
+    if "hermes:" not in raw_l and '"hermes"' not in raw_l:
+        err.append("missing metadata.hermes")
+    if "openclaw" in raw_l:
+        err.append("openclaw-shaped")
+    for section in HERMES_SECTIONS:
+        if section not in text:
+            err.append("missing section: " + section)
+    lowered = text.lower()
+    for needle in SKILL_MUST_CONTAIN:
+        if needle.lower() not in lowered:
+            err.append("missing required text: " + needle)
+    if "not a pass" not in lowered and (
+        "is a pass" in lowered or "opens the door" in lowered or "opens_door: true" in lowered
+    ):
+        err.append("receipt treated as a pass")
+    hit = _banned_in(text)
+    if hit:
+        err.append("banned fragment: " + hit)
+    for frag in SKILL_SCOPE_WIDEN:
+        if frag.lower() in lowered:
+            err.append("scope widen: " + frag)
+    for frag in HE_PORT_SHAPE:
+        if frag in lowered:
+            err.append("port-shaped: " + frag)
+    if "hermes agent --" in lowered:
+        err.append("must not reach Hermes host")
     return err
 
 
@@ -343,6 +407,30 @@ def main() -> int:
         print(f"PASS {skill_valid.name}")
     for path in skill_invalid:
         errs = skill_errors_for(path.read_text())
+        if not errs:
+            print(f"FAIL expected invalid {path.name}: accepted")
+            failed += 1
+        else:
+            print(f"PASS {path.name} rejected ({errs[0]})")
+    hermes_valid = ROOT / "adapters" / "hermes" / "dagora-trust-wrap" / "SKILL.md"
+    hermes_invalid = [
+        ROOT / "examples" / "invalid-hermes-no-check.md",
+        ROOT / "examples" / "invalid-hermes-receipt-pass.md",
+        ROOT / "examples" / "invalid-hermes-banned.md",
+        ROOT / "examples" / "invalid-hermes-widen-check.md",
+        ROOT / "examples" / "invalid-hermes-openclaw-shaped.md",
+        ROOT / "examples" / "invalid-hermes-port-shaped.md",
+    ]
+    hermes_errs = hermes_skill_errors_for(
+        hermes_valid.read_text(), dirname=hermes_valid.parent.name
+    )
+    if hermes_errs:
+        print(f"FAIL expected valid hermes {hermes_valid.name}: {hermes_errs}")
+        failed += 1
+    else:
+        print(f"PASS hermes {hermes_valid.name}")
+    for path in hermes_invalid:
+        errs = hermes_skill_errors_for(path.read_text())
         if not errs:
             print(f"FAIL expected invalid {path.name}: accepted")
             failed += 1
