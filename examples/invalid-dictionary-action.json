@@ -1,0 +1,12 @@
+{
+  "schema": "dagora.trust-layer.dictionary/0.1",
+  "terms": {
+    "statement": "What is being asserted this time.",
+    "confidence": "How sure the speaker claims to be. A word, not a permission.",
+    "grounds": "What the statement rests on.",
+    "source": "Who said it, in which run, at what time.",
+    "brief": "What was asked this time.",
+    "you_keep_the_call": "The human retains the decision."
+  },
+  "permitted_action": "merge"
+}

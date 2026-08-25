@@ -11,6 +11,27 @@ ROOT = Path(__file__).resolve().parents[1]
 GRADES = {"VERIFIED", "OBSERVED", "REPORTED", "INFERRED", "UNRESOLVED"}
 SCHEMA = "dagora.trust-layer.envelope/0.1"
 REQUIRED = ("schema", "WHY_NOW", "DISTANCE", "ALTERNATIVE", "CLAIM", "UNRESOLVED")
+DICT_SCHEMA = "dagora.trust-layer.dictionary/0.1"
+DICT_TERMS = (
+    "statement",
+    "confidence",
+    "grounds",
+    "source",
+    "brief",
+    "you_keep_the_call",
+)
+ACTION_KEYS = frozenset(
+    {"permitted_action", "callback", "token", "grant", "allow", "must", "execute"}
+)
+BANNED_FRAGMENTS = (
+    "算子化",
+    "lumon",
+    "start-stop",
+    "16/16",
+    "go_gates",
+    "decisionprovider",
+    "operator-ization",
+)
 
 
 def errors_for(doc: object) -> list[str]:
@@ -53,6 +74,46 @@ def errors_for(doc: object) -> list[str]:
     return err
 
 
+def _banned_in(text: str) -> str | None:
+    lowered = text.lower()
+    for frag in BANNED_FRAGMENTS:
+        if frag in lowered:
+            return frag
+    return None
+
+
+def dictionary_errors_for(doc: object) -> list[str]:
+    err: list[str] = []
+    if not isinstance(doc, dict):
+        return ["document is not an object"]
+    extra_top = set(doc) - {"schema", "terms"}
+    if extra_top:
+        err.append(f"unknown keys: {sorted(extra_top)}")
+    action = ACTION_KEYS.intersection(doc)
+    if action:
+        err.append("action key: " + ",".join(sorted(action)))
+    if doc.get("schema") != DICT_SCHEMA:
+        err.append("schema must be dagora.trust-layer.dictionary/0.1")
+    terms = doc.get("terms")
+    if not isinstance(terms, dict):
+        err.append("terms must be an object")
+        return err
+    extra = set(terms) - set(DICT_TERMS)
+    if extra:
+        err.append(f"unknown terms: {sorted(extra)}")
+    missing = [key for key in DICT_TERMS if key not in terms]
+    if missing:
+        err.append("missing terms: " + ",".join(missing))
+    for key, value in terms.items():
+        if not isinstance(value, str) or not value.strip():
+            err.append(f"term {key} must be a non-empty string")
+            continue
+        hit = _banned_in(value)
+        if hit:
+            err.append(f"banned fragment in {key}: {hit}")
+    return err
+
+
 def load(path: Path) -> object:
     return json.loads(path.read_text())
 
@@ -66,6 +127,15 @@ def main() -> int:
         ROOT / "examples" / "invalid-opens-door.json",
         ROOT / "examples" / "invalid-claim-grade.json",
     ]
+    dict_valid = [
+        ROOT / "dictionary" / "shared.json",
+        ROOT / "examples" / "valid-dictionary.json",
+    ]
+    dict_invalid = [
+        ROOT / "examples" / "invalid-dictionary-extra.json",
+        ROOT / "examples" / "invalid-dictionary-action.json",
+        ROOT / "examples" / "invalid-dictionary-banned.json",
+    ]
     failed = 0
     for path in valid:
         errs = errors_for(load(path))
@@ -76,6 +146,20 @@ def main() -> int:
             print(f"PASS {path.name}")
     for path in invalid:
         errs = errors_for(load(path))
+        if not errs:
+            print(f"FAIL expected invalid {path.name}: accepted")
+            failed += 1
+        else:
+            print(f"PASS {path.name} rejected ({errs[0]})")
+    for path in dict_valid:
+        errs = dictionary_errors_for(load(path))
+        if errs:
+            print(f"FAIL expected valid {path.name}: {errs}")
+            failed += 1
+        else:
+            print(f"PASS {path.name}")
+    for path in dict_invalid:
+        errs = dictionary_errors_for(load(path))
         if not errs:
             print(f"FAIL expected invalid {path.name}: accepted")
             failed += 1
