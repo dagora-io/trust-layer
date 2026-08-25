@@ -1,0 +1,16 @@
+{
+  "schema": "dagora.trust-layer.envelope/0.1",
+  "WHY_NOW": "Example of a non-conformant receipt.",
+  "DISTANCE": "Would authorize a write if accepted — that is the defect.",
+  "ALTERNATIVE": "Keep opens_door false.",
+  "CLAIM": {
+    "grade": "REPORTED",
+    "evidence": "this file is the negative example"
+  },
+  "UNRESOLVED": "none",
+  "receipt": {
+    "id": "ex-bad-001",
+    "issued_at": "2026-08-25T00:00:00Z",
+    "opens_door": true
+  }
+}

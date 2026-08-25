@@ -1,0 +1,11 @@
+{
+  "schema": "dagora.trust-layer.envelope/0.1",
+  "WHY_NOW": "Example of a non-conformant grade.",
+  "DISTANCE": "Ungraded completion language.",
+  "ALTERNATIVE": "Use OBSERVED with a runtime locator.",
+  "CLAIM": {
+    "grade": "done",
+    "evidence": "this file is the negative example"
+  },
+  "UNRESOLVED": "none"
+}

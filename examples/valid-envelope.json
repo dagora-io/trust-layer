@@ -1,0 +1,11 @@
+{
+  "schema": "dagora.trust-layer.envelope/0.1",
+  "WHY_NOW": "The public spec has no machine check; consumers cannot tell advice from approval. Locator: docs/04-receipt.md",
+  "DISTANCE": "Unchanged product engine. After this envelope: a checker exists at tools/check.py.",
+  "ALTERNATIVE": "Publish an engine instead of a spec — rejected; the engine is not in this repository.",
+  "CLAIM": {
+    "grade": "REPORTED",
+    "evidence": "docs/01-purpose.md normative sentence 1–2"
+  },
+  "UNRESOLVED": "No independent implementation has been submitted for conformance."
+}
